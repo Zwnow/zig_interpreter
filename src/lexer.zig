@@ -22,7 +22,13 @@ pub const Lexer = struct {
         self.skipWhitespace();
 
         switch(self.ch) {
-            '=' => token.init(TokenType.assign, getConstantLiteral(self.ch)),
+            '=' => {
+                if (self.peekChar() != '=') token.init(TokenType.assign, getConstantLiteral(self.ch))
+                else {
+                    try self.readChar();
+                    token.init(TokenType.eq, "==");
+                }
+            },
             ';' => token.init(TokenType.semicolon, getConstantLiteral(self.ch)),
             '(' => token.init(TokenType.lparen, getConstantLiteral(self.ch)),
             ')' => token.init(TokenType.rparen, getConstantLiteral(self.ch)),
@@ -30,6 +36,18 @@ pub const Lexer = struct {
             '+' => token.init(TokenType.plus, getConstantLiteral(self.ch)),
             '{' => token.init(TokenType.lbrace, getConstantLiteral(self.ch)),
             '}' => token.init(TokenType.rbrace, getConstantLiteral(self.ch)),
+            '-' => token.init(TokenType.minus, getConstantLiteral(self.ch)),
+            '*' => token.init(TokenType.asterisk, getConstantLiteral(self.ch)),
+            '/' => token.init(TokenType.slash, getConstantLiteral(self.ch)),
+            '!' => {
+                if (self.peekChar() != '=') token.init(TokenType.bang, getConstantLiteral(self.ch))
+                else {
+                    try self.readChar();
+                    token.init(TokenType.not_eq, "!=");
+                }
+            },
+            '>' => token.init(TokenType.gt, getConstantLiteral(self.ch)),
+            '<' => token.init(TokenType.lt, getConstantLiteral(self.ch)),
             0 => token.init(TokenType.eof, getConstantLiteral(0)),
             else => {
                 if (std.ascii.isAlphabetic(self.ch) or self.ch == '_') {
@@ -74,6 +92,10 @@ pub const Lexer = struct {
         }
     }
 
+    fn peekChar(self: *Lexer) u8 {
+        if (self.read_pos >= self.input.len) return 0 else return self.input[self.read_pos];
+    }
+
     fn getConstantLiteral(ch: u8) []const u8 {
         switch(ch) {
             '=' => return "=",
@@ -84,6 +106,12 @@ pub const Lexer = struct {
             '+' => return "+",
             '{' => return "{",
             '}' => return "}",
+            '-' => return "-",
+            '*' => return "*",
+            '/' => return "/",
+            '!' => return "!",
+            '<' => return "<",
+            '>' => return ">",
             else => return "",
         }
     }
@@ -101,6 +129,15 @@ test "lexing" {
         \\  x + y;
         \\};
         \\let result = add(five, ten);
+        \\!-/*5;
+        \\5 < 10 > 5;
+        \\if (5 < 10) {
+        \\  return true;
+        \\} else {
+        \\  return false;
+        \\}
+        \\10 == 10;
+        \\10 != 9;
     ;
 
     const expected = [_]Token{
@@ -139,6 +176,43 @@ test "lexing" {
         Token{ .type = TokenType.comma, .literal = "," },
         Token{ .type = TokenType.ident, .literal = "ten" },
         Token{ .type = TokenType.rparen, .literal = ")" },
+        Token{ .type = TokenType.semicolon, .literal = ";" },
+        Token{ .type = TokenType.bang, .literal = "!" },
+        Token{ .type = TokenType.minus, .literal = "-" },
+        Token{ .type = TokenType.slash, .literal = "/" },
+        Token{ .type = TokenType.asterisk, .literal = "*" },
+        Token{ .type = TokenType.int, .literal = "5" },
+        Token{ .type = TokenType.semicolon, .literal = ";" },
+        Token{ .type = TokenType.int, .literal = "5" },
+        Token{ .type = TokenType.lt, .literal = "<" },
+        Token{ .type = TokenType.int, .literal = "10" },
+        Token{ .type = TokenType.gt, .literal = ">" },
+        Token{ .type = TokenType.int, .literal = "5" },
+        Token{ .type = TokenType.semicolon, .literal = ";" },
+        Token{ .type = TokenType._if, .literal = "if" },
+        Token{ .type = TokenType.lparen, .literal = "(" },
+        Token{ .type = TokenType.int, .literal = "5" },
+        Token{ .type = TokenType.lt, .literal = "<" },
+        Token{ .type = TokenType.int, .literal = "10" },
+        Token{ .type = TokenType.rparen, .literal = ")" },
+        Token{ .type = TokenType.lbrace, .literal = "{" },
+        Token{ .type = TokenType._return, .literal = "return" },
+        Token{ .type = TokenType.true, .literal = "true" },
+        Token{ .type = TokenType.semicolon, .literal = ";" },
+        Token{ .type = TokenType.rbrace, .literal = "}" },
+        Token{ .type = TokenType._else, .literal = "else" },
+        Token{ .type = TokenType.lbrace, .literal = "{" },
+        Token{ .type = TokenType._return, .literal = "return" },
+        Token{ .type = TokenType.false, .literal = "false" },
+        Token{ .type = TokenType.semicolon, .literal = ";" },
+        Token{ .type = TokenType.rbrace, .literal = "}" },
+        Token{ .type = TokenType.int, .literal = "10" },
+        Token{ .type = TokenType.eq, .literal = "==" },
+        Token{ .type = TokenType.int, .literal = "10" },
+        Token{ .type = TokenType.semicolon, .literal = ";" },
+        Token{ .type = TokenType.int, .literal = "10" },
+        Token{ .type = TokenType.not_eq, .literal = "!=" },
+        Token{ .type = TokenType.int, .literal = "9" },
         Token{ .type = TokenType.semicolon, .literal = ";" },
         Token{ .type = TokenType.eof, .literal = "" },
     };

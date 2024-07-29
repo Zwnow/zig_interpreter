@@ -11,6 +11,15 @@ pub const TokenType = enum {
     // Operators
     assign,
     plus,
+    minus,
+    bang,
+    asterisk,
+    slash,
+
+    lt, //less than
+    gt, //greater than
+    eq,
+    not_eq,
 
     // Delimiters
     comma,
@@ -24,6 +33,11 @@ pub const TokenType = enum {
     // Keywords
     function,
     let,
+    true,
+    false,
+    _if,
+    _else,
+    _return,
 };
 
 pub const Token = struct {
@@ -44,6 +58,11 @@ pub const Token = struct {
         defer Keywords.deinit();
         try Keywords.put("fn", TokenType.function);
         try Keywords.put("let", TokenType.let);
+        try Keywords.put("true", TokenType.true);
+        try Keywords.put("false", TokenType.false);
+        try Keywords.put("if", TokenType._if);
+        try Keywords.put("else", TokenType._else);
+        try Keywords.put("return", TokenType._return);
 
         _ = self;
         if (Keywords.get(literal)) |val| {
