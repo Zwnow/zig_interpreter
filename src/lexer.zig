@@ -8,6 +8,7 @@ pub const Lexer = struct {
     position: usize = 0,
     read_pos: usize = 0,
     ch: u8 = undefined,
+    allocator: std.mem.Allocator,
 
     pub fn readChar(self: *Lexer) !void {
         if (self.read_pos >= self.input.len) self.ch = 0 else self.ch = self.input[self.read_pos];
@@ -17,6 +18,8 @@ pub const Lexer = struct {
 
     pub fn nextToken(self: *Lexer) !Token {
         var token: Token = .{};
+
+        self.skipWhitespace();
 
         switch(self.ch) {
             '=' => token.init(TokenType.assign, getConstantLiteral(self.ch)),
@@ -28,11 +31,47 @@ pub const Lexer = struct {
             '{' => token.init(TokenType.lbrace, getConstantLiteral(self.ch)),
             '}' => token.init(TokenType.rbrace, getConstantLiteral(self.ch)),
             0 => token.init(TokenType.eof, getConstantLiteral(0)),
-            else => _ = .{},
+            else => {
+                if (std.ascii.isAlphabetic(self.ch) or self.ch == '_') {
+                    const ident = self.readIdentifier();
+                    const t = try token.lookupIdent(ident);
+                    token.init(t, ident);
+                } else if (std.ascii.isDigit(self.ch)) {
+                    token.init(TokenType.int, self.readNumber());
+                }
+            },
         }
 
         try self.readChar();
+
         return token;
+    }
+
+    fn readIdentifier(self: *Lexer) []const u8 {
+        const pos: usize = self.position;
+        while(std.ascii.isAlphanumeric(self.ch) or self.ch == '_') {
+            try self.readChar();
+        }
+        // Adjust position. If not adjusted it skips semicolons. 
+        self.position -= 1;
+        self.read_pos -= 1;
+        return self.input[pos..self.position + 1];
+    }
+
+    fn readNumber(self: *Lexer) []const u8 {
+        const pos: usize = self.position;
+        while(std.ascii.isDigit(self.ch)) {
+            try self.readChar();
+        }
+        self.position -= 1;
+        self.read_pos -= 1;
+        return self.input[pos..self.position + 1];
+    }
+
+    fn skipWhitespace(self: *Lexer) void {
+        while(self.ch == ' ' or self.ch == '\t' or self.ch == '\n' or self.ch == '\r') {
+            try self.readChar();
+        }
     }
 
     fn getConstantLiteral(ch: u8) []const u8 {
@@ -53,16 +92,53 @@ pub const Lexer = struct {
 
 
 test "lexing" {
-    const input = "=+(){},;";
+    const allocator = std.testing.allocator;
+
+    const input = 
+        \\let five= 5;
+        \\let ten = 10;
+        \\let add = fn(x, y) {
+        \\  x + y;
+        \\};
+        \\let result = add(five, ten);
+    ;
 
     const expected = [_]Token{
+        Token{ .type = TokenType.let, .literal = "let" },
+        Token{ .type = TokenType.ident, .literal = "five" },
         Token{ .type = TokenType.assign, .literal = "=" },
-        Token{ .type = TokenType.plus, .literal = "+" },
+        Token{ .type = TokenType.int, .literal = "5" },
+        Token{ .type = TokenType.semicolon, .literal = ";" },
+        Token{ .type = TokenType.let, .literal = "let" },
+        Token{ .type = TokenType.ident, .literal = "ten" },
+        Token{ .type = TokenType.assign, .literal = "=" },
+        Token{ .type = TokenType.int, .literal = "10" },
+        Token{ .type = TokenType.semicolon, .literal = ";" },
+        Token{ .type = TokenType.let, .literal = "let" },
+        Token{ .type = TokenType.ident, .literal = "add" },
+        Token{ .type = TokenType.assign, .literal = "=" },
+        Token{ .type = TokenType.function, .literal = "fn" },
         Token{ .type = TokenType.lparen, .literal = "(" },
+        Token{ .type = TokenType.ident, .literal = "x" },
+        Token{ .type = TokenType.comma, .literal = "," },
+        Token{ .type = TokenType.ident, .literal = "y" },
         Token{ .type = TokenType.rparen, .literal = ")" },
         Token{ .type = TokenType.lbrace, .literal = "{" },
+        Token{ .type = TokenType.ident, .literal = "x" },
+        Token{ .type = TokenType.plus, .literal = "+" },
+        Token{ .type = TokenType.ident, .literal = "y" },
+        Token{ .type = TokenType.semicolon, .literal = ";" },
         Token{ .type = TokenType.rbrace, .literal = "}" },
+        Token{ .type = TokenType.semicolon, .literal = ";" },
+        Token{ .type = TokenType.let, .literal = "let" },
+        Token{ .type = TokenType.ident, .literal = "result" },
+        Token{ .type = TokenType.assign, .literal = "=" },
+        Token{ .type = TokenType.ident, .literal = "add" },
+        Token{ .type = TokenType.lparen, .literal = "(" },
+        Token{ .type = TokenType.ident, .literal = "five" },
         Token{ .type = TokenType.comma, .literal = "," },
+        Token{ .type = TokenType.ident, .literal = "ten" },
+        Token{ .type = TokenType.rparen, .literal = ")" },
         Token{ .type = TokenType.semicolon, .literal = ";" },
         Token{ .type = TokenType.eof, .literal = "" },
     };
@@ -70,6 +146,7 @@ test "lexing" {
     // Create lexer
     var lexer = Lexer{
         .input = input,
+        .allocator = allocator,
     };
 
     try lexer.readChar();
@@ -91,7 +168,7 @@ fn testType(expected: TokenType, got: TokenType) !void {
 }
 
 fn testLiteral(expected: []const u8, got: []const u8) !void {
-    std.testing.expectEqual(expected, got) catch |err| {
+    std.testing.expectEqualStrings(expected, got) catch |err| {
         std.debug.print("[Literal] Expected: '{s}', Got: '{s}'\n", .{expected, got});        
         return err;
     };
