@@ -10,7 +10,7 @@ pub const Lexer = struct {
     ch: u8 = undefined,
     allocator: std.mem.Allocator,
 
-    pub fn readChar(self: *Lexer) !void {
+    pub fn readChar(self: *Lexer) void {
         if (self.read_pos >= self.input.len) self.ch = 0 else self.ch = self.input[self.read_pos];
         self.position = self.read_pos;
         self.read_pos += 1;
@@ -25,7 +25,7 @@ pub const Lexer = struct {
             '=' => {
                 if (self.peekChar() != '=') token.init(TokenType.assign, getConstantLiteral(self.ch))
                 else {
-                    try self.readChar();
+                    self.readChar();
                     token.init(TokenType.eq, "==");
                 }
             },
@@ -42,7 +42,7 @@ pub const Lexer = struct {
             '!' => {
                 if (self.peekChar() != '=') token.init(TokenType.bang, getConstantLiteral(self.ch))
                 else {
-                    try self.readChar();
+                    self.readChar();
                     token.init(TokenType.not_eq, "!=");
                 }
             },
@@ -60,7 +60,7 @@ pub const Lexer = struct {
             },
         }
 
-        try self.readChar();
+        self.readChar();
 
         return token;
     }
@@ -68,7 +68,7 @@ pub const Lexer = struct {
     fn readIdentifier(self: *Lexer) []const u8 {
         const pos: usize = self.position;
         while(std.ascii.isAlphanumeric(self.ch) or self.ch == '_') {
-            try self.readChar();
+            self.readChar();
         }
         // Adjust position. If not adjusted it skips semicolons. 
         self.position -= 1;
@@ -79,7 +79,7 @@ pub const Lexer = struct {
     fn readNumber(self: *Lexer) []const u8 {
         const pos: usize = self.position;
         while(std.ascii.isDigit(self.ch)) {
-            try self.readChar();
+            self.readChar();
         }
         self.position -= 1;
         self.read_pos -= 1;
@@ -88,7 +88,7 @@ pub const Lexer = struct {
 
     fn skipWhitespace(self: *Lexer) void {
         while(self.ch == ' ' or self.ch == '\t' or self.ch == '\n' or self.ch == '\r') {
-            try self.readChar();
+            self.readChar();
         }
     }
 
@@ -223,7 +223,7 @@ test "lexing" {
         .allocator = allocator,
     };
 
-    try lexer.readChar();
+    lexer.readChar();
 
     for (0..expected.len) |i| {
         const tok = try lexer.nextToken();
