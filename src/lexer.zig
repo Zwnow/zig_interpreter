@@ -77,10 +77,23 @@ test "lexing" {
     for (0..expected.len) |i| {
         const tok = try lexer.nextToken();
 
-        std.debug.print("[Type] Expected: '{any}', Got: '{any}'\n", .{expected[i].type, tok.type});        
-        try std.testing.expectEqual(expected[i].type, tok.type);
-
-        std.debug.print("[Literal] Expected: '{s}', Got: '{s}'\n", .{expected[i].literal, tok.literal});        
-        try std.testing.expectEqual(expected[i].literal, tok.literal);
+        try testType(expected[i].type, tok.type);
+        try testLiteral(expected[i].literal, tok.literal);
     }
+
 }
+
+fn testType(expected: TokenType, got: TokenType) !void {
+    std.testing.expectEqual(expected, got) catch |err| {
+        std.debug.print("[Type] Expected: '{any}', Got: '{any}'\n", .{expected, got});        
+        return err;
+    };
+}
+
+fn testLiteral(expected: []const u8, got: []const u8) !void {
+    std.testing.expectEqual(expected, got) catch |err| {
+        std.debug.print("[Literal] Expected: '{s}', Got: '{s}'\n", .{expected, got});        
+        return err;
+    };
+}
+
